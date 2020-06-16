@@ -1,6 +1,8 @@
 //#include <FlashAsEEPROM.h>
 #include "Arduino.h"
 #include <Servo.h>
+#include <SPI.h>
+#include "SD.h"
 //#include <Stepper.h>
 
 #define LINE_BUFFER_LENGTH 512
@@ -244,7 +246,7 @@ void drawLine(float x1, float y1) {
   Ypos = y1;
 }
 
-void processIncomingLine( char* line, int charNB ) {
+void processIncomingLine(const char* line, int charNB ) {
   int currentIndex = 0;
   char buffer[ 64 ];                                 // Hope that 64 is enough for 1 parameter
   struct point newPos;
@@ -338,6 +340,13 @@ void processIncomingLine( char* line, int charNB ) {
 
 }
 
+void SDcardReadlinebyline(File *fp){
+    while(fp->available()){
+        String line = fp->readStringUntil('\n');
+        processIncomingLine(line.c_str(),line.length());
+    }
+}
+
 /**********************
    void setup() - Initialisations
  ***********************/
@@ -387,6 +396,14 @@ void setup() {
   digitalWrite(6, HIGH);
   digitalWrite(8, HIGH);
   digitalWrite(11, LOW);
+
+  SerialUSB.print("Initializing SD card...");
+
+  if (!SD.begin(4)) {
+    SerialUSB.println("initialization failed!");
+    while (1);
+  }
+  SerialUSB.println("initialization done.");
 }
 
 /**********************
@@ -404,6 +421,9 @@ void loop()
   lineSemiColon = false;
   lineIsComment = false;
 
+  bool fileStart = false;
+  File dataFile;
+
   while (1) {
 
     // Serial reception - Mostly from Grbl, added semicolon support
@@ -416,7 +436,30 @@ void loop()
             SerialUSB.print( "Received : ");
             SerialUSB.println( line );
           }
-          processIncomingLine( line, lineIndex );
+          if((fileStart == false) && (line == "#START")){
+              if(verbose){
+                  SerialUSB.println("SD card opened file");
+              }
+              dataFile = SD.open("datalog.txt", FILE_WRITE);
+              fileStart = true;
+          }
+          else if(fileStart == true){
+              if(line == "#OK"){
+                  if(verbose){
+                      SerialUSB.println("SD card closed file");
+                  }
+                  Serial.println("ack"); // let BLE know file is completely received
+                  dataFile.close();
+                  delay(500);
+                  dataFile = SD.open("datalog.txt", FILE_READ);
+                  //reopen file in reopen and iterate line by lines
+                  SDcardReadlinebyline(&dataFile);
+              }
+              else{
+                  dataFile.println(line);
+              }
+          }
+
           lineIndex = 0;
         }
         else {
