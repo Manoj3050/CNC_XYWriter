@@ -399,7 +399,7 @@ void setup() {
 
   SerialUSB.print("Initializing SD card...");
 
-  if (!SD.begin(4)) {
+  if (!SD.begin(9)) {
     SerialUSB.println("initialization failed!");
     while (1);
   }
@@ -429,22 +429,25 @@ void loop()
     // Serial reception - Mostly from Grbl, added semicolon support
     while ( Serial.available() > 0 ) {
       c = Serial.read();
-      if (( c == '\n') || (c == '\r') ) {             // End of line reached
+      if (( c == '\n') || (c == '\r') || (c == '@') ) {             // End of line reached
         if ( lineIndex > 0 ) {                        // Line is complete. Then execute!
           line[ lineIndex ] = '\0';                   // Terminate string
           if (verbose) {
             SerialUSB.print( "Received : ");
             SerialUSB.println( line );
           }
-          if((fileStart == false) && (line == "#START")){
+          if((line == "OK+CONN") || (line == "OK+LOST")){
+              //dom nothing just clear buffer
+          }
+          else if((fileStart == false) && (line == "##START")) {
               if(verbose){
                   SerialUSB.println("SD card opened file");
               }
               dataFile = SD.open("datalog.txt", FILE_WRITE);
               fileStart = true;
           }
-          else if(fileStart == true){
-              if(line == "#OK"){
+          else if(fileStart == true) {
+              if(line == "##OK"){
                   if(verbose){
                       SerialUSB.println("SD card closed file");
                   }
