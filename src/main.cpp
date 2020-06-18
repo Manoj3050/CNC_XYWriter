@@ -446,6 +446,10 @@ void loop()
               if(verbose) {
                   SerialUSB.println("SD card opened file");
               }
+              //remove file if already exists
+              if(SD.exists("datalog.txt")){
+                  SD.remove("datalog.txt");
+              }
               dataFile = SD.open("datalog.txt", FILE_WRITE);
               fileStart = true;
           }
