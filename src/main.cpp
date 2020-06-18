@@ -7,6 +7,8 @@
 
 #define LINE_BUFFER_LENGTH 512
 
+#define CS_PIN 9
+#define DELAY 5
 /*
    PARAMETRES DE CONFIGURATION
 */
@@ -81,12 +83,12 @@ void moveStepperX(int steps) {
     digitalWrite(6, LOW);
     steps = steps*(-1);
   }
-  delay(5);
+  delayMicroseconds(500);
   for (int i = 0; i < steps; i++) {
     digitalWrite(5, HIGH);
-    delayMicroseconds(400);
+    delayMicroseconds(DELAY);
     digitalWrite(5, LOW);
-    delayMicroseconds(400);
+    delayMicroseconds(DELAY);
   }
 
 }
@@ -100,12 +102,12 @@ void moveStepperY(int steps) {
     digitalWrite(8, LOW);
     steps = steps*(-1);
   }
-  delay(5);
+  delayMicroseconds(500);
   for (int i = 0; i < steps; i++) {
     digitalWrite(7, HIGH);
-    delayMicroseconds(400);
+    delayMicroseconds(DELAY);
     digitalWrite(7, LOW);
-    delayMicroseconds(400);
+    delayMicroseconds(DELAY);
   }
 
 }
@@ -343,6 +345,7 @@ void processIncomingLine(const char* line, int charNB ) {
 void SDcardReadlinebyline(File *fp){
     while(fp->available()){
         String line = fp->readStringUntil('\n');
+        SerialUSB.println(line);
         processIncomingLine(line.c_str(),line.length());
     }
 }
@@ -392,14 +395,14 @@ void setup() {
   digitalWrite(4, HIGH);
 
   pinMode(A4, OUTPUT);    // Microstepping output
-  digitalWrite(A4, LOW); // 1/16 (default config)
+  digitalWrite(A4, HIGH); // 1/16 (default config)
   digitalWrite(6, HIGH);
   digitalWrite(8, HIGH);
   digitalWrite(11, LOW);
 
   SerialUSB.print("Initializing SD card...");
 
-  if (!SD.begin(9)) {
+  if (!SD.begin(CS_PIN)) {
     SerialUSB.println("initialization failed!");
     while (1);
   }
@@ -436,27 +439,36 @@ void loop()
             SerialUSB.print( "Received : ");
             SerialUSB.println( line );
           }
-          if((line == "OK+CONN") || (line == "OK+LOST")){
+          if((String(line) == "OK+CONN") || (String(line) == "OK+LOST")) {
               //dom nothing just clear buffer
           }
-          else if((fileStart == false) && (line == "##START")) {
-              if(verbose){
+          else if((fileStart == false) && (String(line) == "##START")) {
+              if(verbose) {
                   SerialUSB.println("SD card opened file");
               }
               dataFile = SD.open("datalog.txt", FILE_WRITE);
               fileStart = true;
           }
           else if(fileStart == true) {
-              if(line == "##OK"){
+              if(String(line) == "##OK") {
                   if(verbose){
                       SerialUSB.println("SD card closed file");
                   }
-                  Serial.println("ack"); // let BLE know file is completely received
+                  Serial.println("ok"); // let BLE know file is completely received
                   dataFile.close();
                   delay(500);
                   dataFile = SD.open("datalog.txt", FILE_READ);
                   //reopen file in reopen and iterate line by lines
                   SDcardReadlinebyline(&dataFile);
+                  fileStart = false;
+              }
+              else if(String(line).indexOf("CONVERTERFAILEDWITHCODE") > 0){
+                  if(verbose){
+                      SerialUSB.println("SD card closed file.Bad Gcode");
+                  }
+                  Serial.println("bad"); // let BLE know file is completely received
+                  dataFile.close();
+                  fileStart = false;
               }
               else{
                   dataFile.println(line);
@@ -470,7 +482,6 @@ void loop()
         }
         lineIsComment = false;
         lineSemiColon = false;
-        Serial.println("ok");
       }
       else {
         if ( (lineIsComment) || (lineSemiColon) ) {   // Throw away all comment characters
@@ -497,7 +508,6 @@ void loop()
           }
           else {
             line[ lineIndex++ ] = c;
-            SerialUSB.println(line);
           }
         }
       }
