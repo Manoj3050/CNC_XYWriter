@@ -15,6 +15,7 @@
 #define LINE_BUFFER_LENGTH 512
 
 #define CS_PIN 9
+#define LIMIT_SWITCH_PIN 10
 #define DELAY 5
 /*
 PARMITERS OF CONFIGURATION
@@ -80,6 +81,7 @@ boolean verbose = false;
 //  Discard any other command!
 
 
+
 void moveStepperX(int steps) {
     //stepper motor 1
 
@@ -117,7 +119,12 @@ void moveStepperY(int steps) {
     }
 
 }
-
+//move stepper X until hit the limit switch
+void moveStepperXUntil(){
+    while(digitalRead(LIMIT_SWITCH_PIN) == LOW){
+        moveStepperX(10);
+    }
+}
 //  Raises pen
 void penUp() {
     penServo.write(penZUp);
@@ -355,6 +362,7 @@ void ejectMotors(){
     moveStepperY(EJECT_PAPER_STEPS); // increae this 332 until it ejects
     Ypos = EJECT_PAPER_STEPS;
     drawLine(Xmin,0);
+    moveStepperXUntil();
     digitalWrite(11, HIGH); //disable motors
     penServo.detach();
 
@@ -411,8 +419,8 @@ void setup() {
     pinMode(6, OUTPUT); // DIR MOTOR 1  ATSAMD21:PA20
     pinMode(7, OUTPUT); // STEP MOTOR 2 ATSAMD21:PA21
     pinMode(8, OUTPUT); // DIR MOTOR 2  ATSAMD21:PA06
-    pinMode(9, OUTPUT); // STEP MOTOR 3 ATSAMD21:PA07
-    pinMode(10, OUTPUT); // DIR MOTOR 3  ATSAMD21:PA18
+    //pinMode(9, OUTPUT); // STEP MOTOR 3 ATSAMD21:PA07
+    //pinMode(10, OUTPUT); // DIR MOTOR 3  ATSAMD21:PA18
 
     pinMode(4, OUTPUT);
     digitalWrite(4, HIGH);
@@ -422,6 +430,8 @@ void setup() {
     digitalWrite(6, HIGH);
     digitalWrite(8, HIGH);
     digitalWrite(11, HIGH); //disable motors for sttart
+
+    pinMode(LIMIT_SWITCH_PIN,INPUT); // set input for limit switch
 
     SerialUSB.print("Initializing SD card...");
 
